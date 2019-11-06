@@ -1,0 +1,344 @@
+import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
+import javax.inject.Inject
+import java.util.zip.ZipEntry
+import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
+
+apply plugin: 'com.android.application'
+
+apply plugin: 'kotlin-android'
+
+apply plugin: 'kotlin-android-extensions'
+
+android {
+    compileSdkVersion 28
+    defaultConfig {
+        applicationId "wxgaly.android.forceapkdemo"
+        minSdkVersion 15
+        targetSdkVersion 28
+        versionCode 1
+        versionName "1.0.0"
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    /*** 签名设置*/
+    signingConfigs {
+        debug {
+            storeFile file("./screenservice_terminal.jks")
+            keyAlias "screenservice"
+            keyPassword "nova123456"
+            storePassword "nova123456"
+        }
+        release {
+            storeFile file("./screenservice_terminal.jks")
+            keyAlias "screenservice"
+            keyPassword "nova123456"
+            storePassword "nova123456"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false//是否混淆
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true//是否混淆
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+
+    //在生成的apk文件，修改下命名而已
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def outputFile = output.outputFile
+            if (outputFile != null && outputFile.name.endsWith('.apk')) {
+                //def fileName = outputFile.name.replace(".apk", "_${defaultConfig.versionName}.apk")
+                def fileName = "app" +
+                        "_${variant.buildType.name}" +
+                        "_${variant.versionName}.apk"
+                outputFileName = fileName
+
+//                task "forceApp${variant.name.capitalize()}"(type: ForceApkTask) {
+//                    outputApk = outputFile
+//                    buildType = variant.buildType.name
+//                    appBuildDir = getBuildDir()
+//                    mRootProject = getRootProject()
+//                    apkName = fileName
+//                    keyAlias = signingConfigs.debug.keyAlias
+//                    keyPassword = signingConfigs.debug.keyPassword
+//                }
+
+                task "forceApp${variant.name.capitalize()}" doLast {
+                    rootProject.ext.forceApk(
+                            outputFile,
+                            variant.buildType.name,
+                            getBuildDir(),
+                            getRootProject(),
+                            fileName,
+                            signingConfigs.debug.keyAlias,
+                            signingConfigs.debug.keyPassword)
+                }
+
+                println("------------------------------ ${outputFileName}")
+            }
+        }
+    }
+
+    project.tasks.whenTaskAdded { task ->
+        applicationVariants.all { variant ->
+            if (task.name == "assemble${variant.name.capitalize()}") {
+                task.finalizedBy "forceApp${variant.name.capitalize()}"
+            }
+        }
+    }
+
+}
+
+//class ForceApkTask extends DefaultTask {
+//
+//    Project mRootProject
+//    File appBuildDir
+//    File outputApk
+//    String buildType
+//    String apkName
+//    String keyAlias
+//    String keyPassword
+//
+//    @TaskAction
+//    void forceApk() {
+//        println("mRootProject: ${mRootProject}")
+//        println("appBuildDir: ${appBuildDir.getAbsolutePath()}")
+//        println("path: ${outputApk.getAbsolutePath()}")
+//        println("buildType: ${buildType}")
+//        println("apkName: ${apkName}")
+//
+//        if (buildType == "debug") {
+//            println("------------------------------ ${buildType}")
+//            def appPath = appBuildDir
+//
+//            mRootProject.allprojects { project ->
+//                /**
+//                 * 1. 过滤出解密工程
+//                 */
+//                if (project.name == "proxy_lib") {
+//                    println(project.getBuildDir().getAbsolutePath())
+//                    def sdkDirProp = android.getSdkDirectory()
+//                    println("sdkDirProp : $sdkDirProp")
+//
+//                    def jarFile = new File("${project.getBuildDir().getAbsolutePath()}/intermediates/compile_library_classes/${buildType}/classes.jar")
+//                    println("jarFile: ${jarFile.getAbsolutePath()}")
+//                    println("exists: ${jarFile.exists()} ")
+//                    def osName = System.getProperty("os.name")
+//                    println("osName: $osName")
+//
+//
+//                    /**
+//                     * 2. 将解密工程的jar转换成dex
+//                     */
+//                    def jar2dexFile = new File("${project.getBuildDir().getAbsolutePath()}/outputs/classes.dex")
+//                    if (osName.toLowerCase().startsWith("win")) {
+//                        //windows平台执行命令行略微不同
+//                    } else {
+//                        exec {
+//                            workingDir "$sdkDirProp/build-tools/28.0.3/"
+//                            executable './dx'
+//                            args '--dex', '--output', "${jar2dexFile.getAbsolutePath()}", "${jarFile.getAbsolutePath()}"
+//                        }
+//                    }
+//
+//                    def unzipApkDir = new File("${outputApk.getParent()}/temp")
+//                    println(unzipApkDir.getAbsolutePath())
+//
+//                    /**
+//                     * 3. 解压APK文件
+//                     */
+//                    unzipFile("${outputApk.getParent()}/$apkName", unzipApkDir.getAbsolutePath())
+//
+//                    def dexFiles = unzipApkDir.listFiles(new FilenameFilter() {
+//                        @Override
+//                        boolean accept(File dir, String name) {
+//                            return name.endsWith(".dex")
+//                        }
+//                    })
+//
+//                    dexFiles.each { file ->
+//                        println(file.name)
+//
+//                        byte[] bytes = file.getBytes()
+//                        byte[] encrypt = encrypt(bytes)
+//                        def desFile = new File(unzipApkDir, "secret-${file.getName()}s")
+//                        desFile.setBytes(encrypt)
+//                        file.delete()
+//                    }
+//
+//                    def metaInfDir = new File("${unzipApkDir.getAbsolutePath()}/META-INF")
+//                    metaInfDir.listFiles().each {
+//                        it.delete()
+//                    }
+//                    metaInfDir.delete()
+//
+//                    /**
+//                     * 4. 把dex放入apk解压目录，重新压成apk文件
+//                     */
+//                    jar2dexFile.renameTo(new File(unzipApkDir, "classes.dex"))
+//                    File unSignedApk = new File("${outputApk.getParent()}/app-unsigned.apk")
+//                    zipFile(unzipApkDir.getAbsolutePath(), unSignedApk.getAbsolutePath())
+//                    //todo 删除temp文件夹
+//
+//                    /**
+//                     * 5. 校验apk
+//                     */
+//                    File alignedApk = new File("${outputApk.getParent()}/app-unsigned-aligned.apk")
+//                    if (alignedApk.exists()) {
+//                        alignedApk.delete()
+//                    }
+//
+//                    if (osName.toLowerCase().startsWith("win")) {
+//                        //windows平台执行命令行略微不同
+//                    } else {
+//                        exec {
+//                            workingDir "$sdkDirProp/build-tools/28.0.3/"
+//                            commandLine './zipalign', '-v', '4', "${unSignedApk.getAbsolutePath()}", "${alignedApk.getAbsolutePath()}"
+//                        }
+//                    }
+//
+//                    /**
+//                     * 6. 签名apk
+//                     */
+//                    def shFile = new File("${project.getRootDir().getAbsolutePath()}/${project.name}", "signApk.sh")
+//                    def signedApk = new File("${outputApk.getParent()}/app-signed-aligned.apk")
+//                    def jks = new File("${appPath.getParent()}/screenservice_terminal.jks")
+//                    println(jks.getAbsolutePath())
+//
+//                    if (osName.toLowerCase().startsWith("win")) {
+//                        //windows平台执行命令行略微不同
+//                    } else {
+////                                    exec {
+////                                        commandLine 'echo', "${signingConfigs.debug.keyPassword}", '|', 'jarsigner', '-verbose', '-keystore',
+////                                                "${jks.getAbsolutePath()}", '-signedjar',"${signedApk.getAbsolutePath()}",
+////                                                "${alignedApk.getAbsolutePath()}", "${signingConfigs.debug.keyAlias}"
+////                                    }
+//
+//                        exec {
+//                            commandLine "${shFile.getAbsolutePath()}", "${keyPassword}", "${jks.getAbsolutePath()}",
+//                                    "${signedApk.getAbsolutePath()}", "${alignedApk.getAbsolutePath()}", "${keyAlias}"
+//                        }
+//                    }
+//
+//                }
+//            }
+//        }
+//
+//    }
+//
+//    def zipFile(directory, zipFilePath) {
+//        def outZip = new ZipOutputStream(new FileOutputStream(zipFilePath))
+//        def file = new File(directory)
+//
+//        ZipFiles("${file.getAbsolutePath()}", "", outZip)
+//        outZip.finish()
+//        outZip.close()
+//    }
+//
+//    def ZipFiles(folderString, String fileString, ZipOutputStream zipOutputSteam) {
+//        if (zipOutputSteam == null) {
+//            return
+//        }
+//        def file = new File(folderString + fileString)
+//        if (file.isFile()) {
+//            def zipEntry = new ZipEntry(fileString.substring(1))
+//            def inputStream = new FileInputStream(file)
+//            zipOutputSteam.putNextEntry(zipEntry)
+//            zipOutputSteam << inputStream
+//            zipOutputSteam.closeEntry()
+//
+//        } else {
+//            // folder
+//            def fileList = file.list()
+//            // no child file and compress
+//            if (fileList.length <= 0) {
+//                def zipEntry = new ZipEntry(fileString + File.separator)
+//                zipOutputSteam.putNextEntry(zipEntry)
+//                zipOutputSteam.closeEntry()
+//            }
+//            // child files and recursion
+//            for (int i = 0; i < fileList.length; i++) {
+//                ZipFiles(folderString, "$fileString/${fileList[i]}", zipOutputSteam)
+//            } // end of for
+//        }
+//    }
+//
+//// 解压文件
+//    static def unzipFile(zipFileString, outPathString) {
+//        def zipFile = new ZipFile(zipFileString)
+//        def enm = zipFile.entries()
+//
+//        def unzipDir = new File(outPathString)
+//        if (unzipDir.exists()) {
+//            unzipDir.delete()
+//        }
+//
+//        while (enm.hasMoreElements()) {
+//            ZipEntry entry = (ZipEntry) enm.nextElement()
+//
+//            if (entry.isDirectory()) {
+//                new File("$outPathString/${entry.getName()}").mkdirs()
+//                continue
+//            }
+//
+//            InputStream inputStream = zipFile.getInputStream(entry)
+//            File file = new File("$outPathString/${entry.getName()}")
+//            File parent = file.getParentFile()
+//            if (parent != null && (!parent.exists())) {
+//                parent.mkdirs()
+//            }
+//
+//            FileOutputStream fos = new FileOutputStream(file)
+//            fos << inputStream
+//
+//        }
+//
+//        zipFile.close()
+//    }
+//
+//
+//// des加密
+//    byte[] encrypt(byte[] source) {
+//        def DEFAULT_KEY = "20191101"
+//        println(DEFAULT_KEY)
+//        def encryptCipher = Cipher.getInstance("DES")
+//        def key = new SecretKeySpec(DEFAULT_KEY.getBytes(), "DES")
+//        encryptCipher.init(Cipher.ENCRYPT_MODE, key)
+//        return encryptCipher.doFinal(source)
+//    }
+//
+//// des解密
+//    byte[] decrypt(byte[] source) {
+//        def DEFAULT_KEY = "20191101"
+//        println(DEFAULT_KEY)
+//        def decryptCipher = Cipher.getInstance("DES")
+//        def key = new SecretKeySpec(DEFAULT_KEY.getBytes(), "DES")
+//        decryptCipher.init(Cipher.DECRYPT_MODE, key)
+//        return decryptCipher.doFinal(source)
+//    }
+//
+//}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
+    implementation 'androidx.appcompat:appcompat:1.1.0'
+    implementation 'androidx.core:core-ktx:1.1.0'
+    implementation 'com.google.android.material:material:1.0.0'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.0'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
+
+    implementation project(':proxy_lib')
+}
