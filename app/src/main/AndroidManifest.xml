@@ -36,10 +36,10 @@
 
         <meta-data
             android:name="app_name"
-            android:value="wxgaly.android.forceapkdemo.SourceApplication" />
+            android:value="${app_name_value}" />
         <meta-data
             android:name="app_version"
-            android:value="1.0.0.0001" />
+            android:value="${app_version_value}" />
 
     </application>
 
