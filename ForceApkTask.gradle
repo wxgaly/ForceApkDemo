@@ -23,7 +23,7 @@ def forceApk(
     println("buildType: ${buildType}")
     println("apkName: ${apkName}")
 
-    if (buildType == "debug") {
+    if (buildType == "release") {
         println("------------------------------ ${buildType}")
         def appPath = appBuildDir
 

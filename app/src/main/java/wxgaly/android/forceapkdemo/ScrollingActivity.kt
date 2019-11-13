@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import android.view.Menu
 import android.view.MenuItem
 import kotlinx.android.synthetic.main.activity_scrolling.*
+import wxgaly.android.proxy_lib.NativeUtil
 
 class ScrollingActivity : AppCompatActivity() {
 
@@ -17,10 +18,12 @@ class ScrollingActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         Log.d("ScrollingActivity", SourceApplication.getAppContext()!!.packageName)
         fab.setOnClickListener { view ->
-            Snackbar.make(view, "Replace with your own action 1111: " + SourceApplication.getAppContext()?.packageName, Snackbar.LENGTH_LONG)
+            Snackbar.make(view, "Replace with your own action 1111: ${SourceApplication.getAppContext()?.packageName}  " +
+                    "${NativeUtil.getString()} ||||  disableDex2oat = ${NativeUtil.disableDex2oat()}"  , Snackbar.LENGTH_LONG)
                 .setAction("Action", null).show()
 //            val intent = Intent(ScrollingActivity@this, EmptyActivity::class.java)
 //            startActivity(intent)
+
         }
     }
 

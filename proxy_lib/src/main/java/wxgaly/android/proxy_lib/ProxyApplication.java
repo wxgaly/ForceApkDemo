@@ -7,18 +7,22 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.ArrayMap;
 import android.util.Log;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import dalvik.system.DexClassLoader;
 
 /**
  * wxgaly.android.proxy_lib.
@@ -52,6 +56,8 @@ public class ProxyApplication extends Application {
 
         //准备dex文件
         if (Contants.BUILD_TYPE.equalsIgnoreCase(BuildConfig.BUILD_TYPE)) {
+            //禁用dex2oat
+//            Log.d(TAG, "disableDex2oat : " + NativeUtil.disableDex2oat());
             prepareDexFiles();
         }
 
@@ -186,6 +192,7 @@ public class ProxyApplication extends Application {
 
         try {
             loadDex(dexFiles, dexDir);
+//            loadDexAndLib(dexDir);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -293,6 +300,24 @@ public class ProxyApplication extends Application {
 
         delegate.onCreate();
         isBindReal = true;
+    }
+
+    private void loadDexAndLib(File dexDir) throws Exception {
+
+        Class<?> activityThread = Class.forName("android.app.ActivityThread");
+        Method currentActivityThreadMethod = ReflectUtil.getStaticMethod(activityThread, "currentActivityThreadMethod", null);
+        Object currentActivity = currentActivityThreadMethod.invoke(null, null);
+
+        Field mPackagesField = ReflectUtil.getDeclaredField(currentActivity, "mPackages");
+        mPackagesField.setAccessible(true);
+        ArrayMap mPackages = (ArrayMap) mPackagesField.get(currentActivity);
+
+        WeakReference wr = (WeakReference) mPackages.get(super.getPackageName());
+        DexClassLoader dexClassLoader = new DexClassLoader(getApplicationInfo().sourceDir, dexDir.getAbsolutePath(), null, getClassLoader());
+
+        Field mClassLoaderField = ReflectUtil.getDeclaredField(wr.get(), "mClassLoader");
+        mClassLoaderField.setAccessible(true);
+        mClassLoaderField.set(wr.get(), dexClassLoader);
     }
 
 }
