@@ -29,13 +29,13 @@ android {
     /*** 签名设置*/
     signingConfigs {
         debug {
-            storeFile file("./screenservice_terminal.jks")
+            storeFile file("./sign.jks")
             keyAlias "screenservice"
             keyPassword "nova123456"
             storePassword "nova123456"
         }
         release {
-            storeFile file("./screenservice_terminal.jks")
+            storeFile file("./sign.jks")
             keyAlias "screenservice"
             keyPassword "nova123456"
             storePassword "nova123456"
@@ -217,7 +217,7 @@ android {
 //                     */
 //                    def shFile = new File("${project.getRootDir().getAbsolutePath()}/${project.name}", "signApk.sh")
 //                    def signedApk = new File("${outputApk.getParent()}/app-signed-aligned.apk")
-//                    def jks = new File("${appPath.getParent()}/screenservice_terminal.jks")
+//                    def jks = new File("${appPath.getParent()}/sign.jks")
 //                    println(jks.getAbsolutePath())
 //
 //                    if (osName.toLowerCase().startsWith("win")) {
